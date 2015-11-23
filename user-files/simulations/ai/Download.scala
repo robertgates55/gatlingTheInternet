@@ -34,7 +34,7 @@ trait FileDownload extends Simulation with Common {
         
       //If there's a file to download, download it
       .doIf(session => session("downloadLink").asOption[Any].isDefined) {
-        exec(http(actionName + "download").get("ttp://52.11.207.166:9292/download + ${downloadLink}")) 
+        exec(http(actionName + "download").get("http://52.11.207.166:9292/ + ${downloadLink}")) 
       }
 
     }
