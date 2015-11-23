@@ -30,11 +30,11 @@ trait FileDownload extends Simulation with Common {
 
       val actionName = proxyLabel + "UA-5_"
 
-      exec(getCheckPause(actionName + "browse", "http://the-internet.herokuapp.com/download")) 
+      exec(getCheckPause(actionName + "browse", "http://52.11.207.166:9292/download")) 
         
       //If there's a file to download, download it
       .doIf(session => session("downloadLink").asOption[Any].isDefined) {
-        exec(http(actionName + "download").get("http://the-internet.herokuapp.com/download + ${downloadLink}")) 
+        exec(http(actionName + "download").get("ttp://52.11.207.166:9292/download + ${downloadLink}")) 
       }
 
     }

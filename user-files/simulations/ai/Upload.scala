@@ -24,7 +24,7 @@ trait FileUpload extends Simulation with Common {
       //  .get("http://the-internet.herokuapp.com/upload"))
       //.pause(5 seconds)
       .exec(http(actionName + "upload")
-        .post("http://the-internet.herokuapp.com/upload")
+        .post("http://52.11.207.166:9292/upload")
         .formUpload("file","${file}")) 
     
     }
