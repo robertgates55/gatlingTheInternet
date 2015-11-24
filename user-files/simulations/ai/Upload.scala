@@ -9,24 +9,19 @@ import io.gatling.http.check.HttpCheck
 import scala.concurrent.duration._
 
 trait FileUpload extends Simulation with Common {
-
   
  object FileUpload {
 
-     val filesFeeder = csv("files.csv").random
+     val filesFeeder = csv("files.csv").queue
 
     def chain(proxyLabel: String): ChainBuilder = {
 
       val actionName = proxyLabel + "UA-6_"
         
       feed(filesFeeder)  
-      //.exec(http(actionName + "browse")
-      //  .get("http://the-internet.herokuapp.com/upload"))
-      //.pause(5 seconds)
       .exec(http(actionName + "upload")
         .post("http://52.11.207.166:9292/upload")
-        .formUpload("file","${file}")) 
-    
+        .formUpload("file","${file}"))     
     }
     
   } 

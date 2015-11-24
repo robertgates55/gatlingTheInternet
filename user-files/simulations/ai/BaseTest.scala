@@ -8,15 +8,16 @@ import io.gatling.http.check.HttpCheck
 
 import scala.concurrent.duration._
 
-class BaseTest extends Simulation with Spider with Google with FileDownload with FileUpload {
+class BaseTest extends Simulation with Spider with Google with FileDownload with FileUpload with Polling{
 
   object BaseTest {
     def chooser(actionName: String): ChainBuilder = {
       randomSwitch( // beware: use parentheses, not curly braces!
-       80.0 -> (Spider.chain(actionName)),
+       79.0 -> (Spider.chain(actionName)),
        10.0 -> (GoogleSpider.chain(actionName)),
        5.0 -> (FileDownload.chain(actionName)),
-       5.0 -> (FileUpload.chain(actionName))
+       5.0 -> (FileUpload.chain(actionName)),
+       1.0 -> (Polling.chain(actionName))
       )
     }
   }
