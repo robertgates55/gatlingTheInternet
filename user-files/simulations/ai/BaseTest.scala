@@ -53,14 +53,14 @@ class BaseTest extends Simulation with Spider with Google with FileDownload with
   val usersWithProxy = scenario("Users with proxy").exec(BaseTest.chooser("[P]_"))
 
   setUp(
-    //usersWithProxy
-    //  .inject(
-    //    rampUsers(math.ceil(numberToInjectOverDuration).toInt) over testDuration)
-    //  .protocols(httpWithProxyConf)
-    //,
+    usersWithProxy
+      .inject(
+        rampUsers(math.ceil(numberToInjectOverDuration).toInt) over testDuration)
+      .protocols(httpWithProxyConf)
+    ,
      usersNoProxy
        .inject(
-         rampUsers(math.ceil(numberToInjectOverDuration * 1.05).toInt) over testDuration)
+         rampUsers(math.ceil(numberToInjectOverDuration * 0.05).toInt) over testDuration)
        .protocols(httpNoProxyConf)
    ).maxDuration(testDuration)
 
