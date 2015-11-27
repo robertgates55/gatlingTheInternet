@@ -10,7 +10,7 @@ import scala.concurrent.duration._
 
 trait Spider extends Simulation with Common {
 
-  
+
  object Spider {
 
     val urlsFeeder = csv("urlsUS.csv").random
@@ -23,7 +23,7 @@ trait Spider extends Simulation with Common {
           .saveAs("postAction")
     }
 
-    def extractFormAction(): HttpCheck = { 
+    def extractFormAction(): HttpCheck = {
      css("form[method='get']","action")
           .find
           .optional
@@ -38,13 +38,16 @@ trait Spider extends Simulation with Common {
           .saveAs("formInputName")
     }
 
-    def extractBaseUrl(): HttpCheck = {
-     currentLocation.saveAs("baseUrl")
+    def extractHttpOrHttps(): HttpCheck = {
+     currentLocation
+     .transform(s => s.split("://")(0))
+     .saveAs("httpOrHttps")
     }
 
     def getCheckPause(actionName: String, url : String): ChainBuilder = {
       exec(http(actionName).get(url)
        .check(extractLink)
+       .check(extractHttpOrHttps)
        .check(extractFormAction))
        .pause(1 seconds, 10 seconds)
     }
@@ -55,27 +58,27 @@ trait Spider extends Simulation with Common {
 
       feed(urlsFeeder)
       .feed(searchTermsFeeder)
-      .exec(getCheckPause(actionName + "browse", "http://${url}/")) 
-        
+      .exec(getCheckPause(actionName + "browse", "http://${url}/"))
+
       //If there's a form on the homepage, let's try and submit it (50% of the time)
-      .doIf(session => session("formAction").asOption[Any].isDefined && util.Random.nextInt(10).toInt > 5) {
-        exec(http(actionName + "browse").get("http://${url}/").check(extractLink).check(extractFormInputName).check(extractBaseUrl)) 
-        .doIf(session => session("formInputName").asOption[Any].isDefined) {
+      .doIf(s => s("formAction").asOption[Any].isDefined && util.Random.nextInt(10).toInt > 5) {
+        exec(http(actionName + "browse").get("http://${url}/").check(extractLink).check(extractFormInputName).check(extractHttpOrHttps))
+        .doIf(s => s("formInputName").asOption[Any].isDefined) {
         exec(s => s.set("term", s("term").as[String].replace(" ", "%20")))
-         .exec(session => session.set("baseAction",
-               session("formAction").asOption[String].getOrElse("")+"?"+
-               session("formInputName").asOption[String].getOrElse("")+"="+
-               session("term").asOption[String].getOrElse("")))
-          .doIfOrElse(session => session("baseAction").as[String].startsWith("http")){
+         .exec(s => s.set("baseAction",
+               s("formAction").asOption[String].getOrElse("")+"?"+
+               s("formInputName").asOption[String].getOrElse("")+"="+
+               s("term").asOption[String].getOrElse("")))
+          .doIfOrElse(s => s("baseAction").as[String].startsWith("http")){
               exec(session => session.set("requestToMake", session("baseAction").asOption[String].getOrElse("")))
           }{
-               exec(session => session.set("requestToMake",
-                session("baseUrl").asOption[String].getOrElse("")+session("baseAction").asOption[String].getOrElse("")))     
+               exec(s => s.set("requestToMake",
+                s("httpOrHttps").asOption[String].getOrElse("") + "://" + s("url").asOption[String].getOrElse("") + s("baseAction").asOption[String].getOrElse("")))
           }
-          .exec(getCheckPause(actionName + "browse","${requestToMake}"))   
+          .exec(getCheckPause(actionName + "browse","${requestToMake}"))
         }
       }
-        
+
       //Spider 0-10 times - either from the results of the above, or from homepage
       .doIf(session => session("link").asOption[Any].isDefined) {
         repeat(util.Random.nextInt(10).toInt) {
@@ -88,22 +91,22 @@ trait Spider extends Simulation with Common {
               // link starts with / or //
               doIfOrElse(session => session("link").as[String].startsWith("//")) {
                 // link = //something
-                getCheckPause(actionName + "browse", "http:${link}")
+                getCheckPause(actionName + "browse", "${httpOrHttps}:${link}")
               } {
                 // else presume link = /something
-                getCheckPause(actionName + "browse", "http://${url}${link}")
+                getCheckPause(actionName + "browse", "${httpOrHttps}://${url}${link}")
               }
             } {
               // else link = not /, //, http or https...
-              getCheckPause(actionName + "browse", "http://${url}/${link}")
+              getCheckPause(actionName + "browse", "${httpOrHttps}://${url}/${link}")
             }
           }
         }
       }
 
     }
-    
-  } 
+
+  }
 
 
 
