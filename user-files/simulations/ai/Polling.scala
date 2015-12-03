@@ -12,12 +12,10 @@ trait Polling extends Simulation with Common {
 
  object Polling {
 
-    def chain(proxyLabel: String): ChainBuilder = {
-
-      val actionName = proxyLabel + "UA-7_"
+    def chain(): ChainBuilder = {
 
       repeat(util.Random.nextInt(20).toInt) {
-        exec(http(actionName + "poll")
+        exec(http("poll")
           .get("https://data.flightradar24.com/zones/fcgi/feed.js")
             .queryParam("bounds","54.47391589740373,47.18782995162306,-9.556199999999535,15.84228515625")
             .queryParam("faa","1")
@@ -35,7 +33,7 @@ trait Polling extends Simulation with Common {
         .pause(5 seconds)
       }
     }
-    
-  } 
+
+  }
 
 }

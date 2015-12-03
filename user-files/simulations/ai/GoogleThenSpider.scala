@@ -8,9 +8,9 @@ import io.gatling.http.check.HttpCheck
 
 import scala.concurrent.duration._
 
-trait Google extends Simulation with Common {
+trait GoogleThenSpider extends Simulation with Common {
 
- object GoogleSpider {
+ object GoogleThenSpider {
 
     val feeder = csv("search_terms.csv").random
 
@@ -30,30 +30,37 @@ trait Google extends Simulation with Common {
 
       feed(feeder)
         // goto google
-        .exec(http("Homepage").get("http://google.co.uk")
+        .exec(http("google").get("http://google.co.uk")
         .check(substring(""" name="q" """), substring("""I'm Feeling Lucky""")))
         .pause(2 seconds, 10 seconds)
 
         // type query and search
         .exec(
-          foreach(session => session("term").as[String].toList, "char") {
-            exec(session => session.set(
-              "currentTerm",
-              session("currentTerm").asOption[String].getOrElse("") + session("char").as[String]))
-            .exec(session => session.set(
-              "currentTermSize",
-              session("currentTerm").asOption[String].getOrElse("").length))
-              .doIf(session => session("char").as[String] != " ") {
-                exec(http("auto-complete")
-                  .get(
-                    "http://google.co.uk/complete/search?" +
-                      "client=hp&hl=en-GB&gs_rn=64&gs_ri=hp&" +
-                      "cp=${currentTermSize}&gs_id=6&" +
-                      "q=${currentTerm}&xhr=t")
-                  .check(substring("${currentTerm}"))
-                )
-              }
-            .pause(10 milliseconds, 200 milliseconds)
+          exitBlockOnFail{
+            foreach(session => session("term").as[String].toList, "char") {
+              exec(session => session.set(
+                "currentTerm",
+                session("currentTerm").asOption[String].getOrElse("") + session("char").as[String]))
+              .exec(session => session.set(
+                "currentTermSize",
+                session("currentTerm").asOption[String].getOrElse("").length))
+                .doIf(session => session("char").as[String] != " ") {
+                  randomSwitch(
+                    50.0 -> (
+                      exec(http("auto-complete")
+                        .get(
+                          "http://google.co.uk/complete/search?" +
+                            "client=hp&hl=en-GB&gs_rn=64&gs_ri=hp&" +
+                            "cp=${currentTermSize}&gs_id=6&" +
+                            "q=${currentTerm}&xhr=t")
+                        .check(status.is(200))
+                        //.check(substring("${currentTerm}"))
+                      )
+                    )
+                  )
+                }
+              .pause(10 milliseconds, 200 milliseconds)
+            }
           }
         )
         .pause(2 seconds, 10 seconds)
@@ -69,26 +76,28 @@ trait Google extends Simulation with Common {
         )
         // click on links up to 10 'deep'
         .doIf(session => session("link").asOption[Any].isDefined) {
-          repeat(util.Random.nextInt(10).toInt) {
-            doIfOrElse(session => session("link").as[String].matches( "https?://.*")) {
-              // link = http(s)://something
-              getCheckPause("browse", "${link}")
-            } {
-              // else
-              doIfOrElse(session => session("link").as[String].startsWith("/")) {
-                // link starts with / or //
-                doIfOrElse(session => session("link").as[String].startsWith("//")) {
-                  // link = //something
-                  getCheckPause("browse", "http:${link}")
+          exitBlockOnFail{
+            repeat(util.Random.nextInt(10).toInt) {
+              doIfOrElse(session => session("link").as[String].matches( "https?://.*")) {
+                // link = http(s)://something
+                getCheckPause("browse", "${link}")
+              } {
+                // else
+                doIfOrElse(session => session("link").as[String].startsWith("/")) {
+                  // link starts with / or //
+                  doIfOrElse(session => session("link").as[String].startsWith("//")) {
+                    // link = //something
+                    getCheckPause("browse", "http:${link}")
+                  } {
+                    // else presume link = /something
+                    //getCheckPause("browse","http://${url}${link}")
+                    exec()
+                  }
                 } {
-                  // else presume link = /something
-                  //getCheckPause("browse","http://${url}${link}")
+                  // else link = not /, //, http or https...
+                  //getCheckPause("browse","http://${url}/${link}")
                   exec()
                 }
-              } {
-                // else link = not /, //, http or https...
-                //getCheckPause("browse","http://${url}/${link}")
-                exec()
               }
             }
           }

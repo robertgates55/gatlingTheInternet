@@ -13,7 +13,7 @@ trait Spider extends Simulation with Common {
 
  object Spider {
 
-    val urlsFeeder = csv("urlsUS.csv").random
+    val urlsFeeder = csv("urls.csv").random
     val searchTermsFeeder = csv("search_terms.csv").random
 
     def extractPostAction(): HttpCheck = {
@@ -44,6 +44,10 @@ trait Spider extends Simulation with Common {
      .saveAs("httpOrHttps")
     }
 
+    def getCheckPause(url : String): ChainBuilder = {
+      getCheckPause(url,url)
+    }
+
     def getCheckPause(actionName: String, url : String): ChainBuilder = {
       exec(http(actionName).get(url)
        .check(extractLink)
@@ -52,17 +56,15 @@ trait Spider extends Simulation with Common {
        .pause(1 seconds, 10 seconds)
     }
 
-    def chain(proxyLabel: String): ChainBuilder = {
-
-      val actionName = proxyLabel + "UA-1/2_"
+    def chain(): ChainBuilder = {
 
       feed(urlsFeeder)
       .feed(searchTermsFeeder)
-      .exec(getCheckPause(actionName + "browse", "http://${url}/"))
+      .exec(getCheckPause("http://${url}/"))
 
       //If there's a form on the homepage, let's try and submit it (50% of the time)
       .doIf(s => s("formAction").asOption[Any].isDefined && util.Random.nextInt(10).toInt > 5) {
-        exec(http(actionName + "browse").get("http://${url}/").check(extractLink).check(extractFormInputName).check(extractHttpOrHttps))
+        exec(http("http://${url}/").get("http://${url}/").check(extractLink).check(extractFormInputName).check(extractHttpOrHttps))
         .doIf(s => s("formInputName").asOption[Any].isDefined) {
         exec(s => s.set("term", s("term").as[String].replace(" ", "%20")))
          .exec(s => s.set("baseAction",
@@ -75,30 +77,32 @@ trait Spider extends Simulation with Common {
                exec(s => s.set("requestToMake",
                 s("httpOrHttps").asOption[String].getOrElse("") + "://" + s("url").asOption[String].getOrElse("") + s("baseAction").asOption[String].getOrElse("")))
           }
-          .exec(getCheckPause(actionName + "browse","${requestToMake}"))
+          .exec(getCheckPause("form Submit", "${requestToMake}"))
         }
       }
 
       //Spider 0-10 times - either from the results of the above, or from homepage
       .doIf(session => session("link").asOption[Any].isDefined) {
-        repeat(util.Random.nextInt(10).toInt) {
-          doIfOrElse(session => session("link").as[String].matches( "https?://.*")) {
-            // link = http(s)://something
-            getCheckPause(actionName + "browse", "${link}")
-          } {
-            // else
-            doIfOrElse(session => session("link").as[String].startsWith("/")) {
-              // link starts with / or //
-              doIfOrElse(session => session("link").as[String].startsWith("//")) {
-                // link = //something
-                getCheckPause(actionName + "browse", "${httpOrHttps}:${link}")
-              } {
-                // else presume link = /something
-                getCheckPause(actionName + "browse", "${httpOrHttps}://${url}${link}")
-              }
+        exitBlockOnFail{
+          repeat(util.Random.nextInt(10).toInt) {
+            doIfOrElse(session => session("link").as[String].matches( "https?://.*")) {
+              // link = http(s)://something
+              getCheckPause("${link}")
             } {
-              // else link = not /, //, http or https...
-              getCheckPause(actionName + "browse", "${httpOrHttps}://${url}/${link}")
+              // else
+              doIfOrElse(session => session("link").as[String].startsWith("/")) {
+                // link starts with / or //
+                doIfOrElse(session => session("link").as[String].startsWith("//")) {
+                  // link = //something
+                  getCheckPause("${httpOrHttps}:${link}")
+                } {
+                  // else presume link = /something
+                  getCheckPause("${httpOrHttps}://${url}${link}")
+                }
+              } {
+                // else link = not /, //, http or https...
+                getCheckPause("${httpOrHttps}://${url}/${link}")
+              }
             }
           }
         }

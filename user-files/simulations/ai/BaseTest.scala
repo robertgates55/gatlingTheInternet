@@ -8,16 +8,17 @@ import io.gatling.http.check.HttpCheck
 
 import scala.concurrent.duration._
 
-class BaseTest extends Simulation with Spider with Google with FileDownload with FileUpload with Polling{
+class BaseTest extends Simulation with Spider with GoogleThenSpider with FileDownload with FileUpload with Polling with PlanJourney{
 
   object BaseTest {
     def chooser(actionName: String): ChainBuilder = {
       randomSwitch( // beware: use parentheses, not curly braces!
-       79.0 -> (Spider.chain(actionName)),
-       10.0 -> (GoogleSpider.chain(actionName)),
-       5.0 -> (FileDownload.chain(actionName)),
-       5.0 -> (FileUpload.chain(actionName)),
-       1.0 -> (Polling.chain(actionName))
+       55.0 -> (Spider.chain()),
+       10.0 -> (PlanJourney.chain()),
+       10.0 -> (GoogleThenSpider.chain()),
+       10.0 -> (FileDownload.chain()),
+       10.0 -> (FileUpload.chain()),
+       5.0 -> (Polling.chain())
       )
     }
   }
@@ -38,32 +39,25 @@ class BaseTest extends Simulation with Spider with Google with FileDownload with
     .disableAutoReferer
     .maxConnectionsPerHostLikeChrome
     .maxRedirects(5)
+    // If you need to run via a proxy
+    // .proxy(Proxy("proxy.somewhere.net", 8080).httpsPort(443))
 
-  val httpWithProxyConf = httpNoProxyConf
-  .proxy(Proxy("proxy.qa.streamshield.net", 3128).httpsPort(3128))
 
-
-    // test run config
+  // test run config
   val testDuration = 3 minutes
   val maxUserCount = 100
   val meanUserLife = 600 // seconds
   val numberToInjectOverDuration = ((math.ceil(testDuration.toSeconds) * maxUserCount) / meanUserLife).toInt //hoping test duration is in seconds
 
-  val usersNoProxy = scenario("Users No proxy").exec(BaseTest.chooser("[D]_"))
-  val usersWithProxy = scenario("Users with proxy").exec(BaseTest.chooser("[P]_"))
+  val standardUsers = scenario("Standard User").exec(BaseTest.chooser(""))
 
   setUp(
-    usersWithProxy
+    standardUsers
       .inject(
         rampUsers(math.ceil(numberToInjectOverDuration).toInt) over testDuration)
-      .protocols(httpWithProxyConf)
-    ,
-     usersNoProxy
-       .inject(
-         rampUsers(math.ceil(numberToInjectOverDuration * 0.05).toInt) over testDuration)
-       .protocols(httpNoProxyConf)
+      .protocols(httpNoProxyConf)
    ).maxDuration(testDuration)
 
-  
+
 
 }

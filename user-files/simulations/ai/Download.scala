@@ -26,19 +26,17 @@ trait FileDownload extends Simulation with Common {
        .pause(1 seconds, 10 seconds)
     }
 
-    def chain(proxyLabel: String): ChainBuilder = {
+    def chain(): ChainBuilder = {
 
-      val actionName = proxyLabel + "UA-5_"
+      exec(getCheckPause("browse", "http://the-internet.herokuapp.com/download"))
 
-      exec(getCheckPause(actionName + "browse", "http://52.11.207.166:9292/download")) 
-        
       //If there's a file to download, download it
       .doIf(session => session("downloadLink").asOption[Any].isDefined) {
-        exec(http(actionName + "download").get("http://52.11.207.166:9292/${downloadLink}")) 
+        exec(http("download").get("http://the-internet.herokuapp.com/${downloadLink}"))
       }
 
     }
-    
-  } 
+
+  }
 
 }
